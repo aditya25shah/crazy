@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ambulance SOS</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚑</text></svg>">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,7 +15,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
         }
         .container {
             max-width: 600px;
@@ -23,6 +24,11 @@
             background-color: #fff;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             border-radius: 8px;
+            margin: 20px 0;
+        }
+        h1 {
+            color: #d9534f;
+            text-align: center;
         }
         form {
             display: flex;
@@ -30,25 +36,28 @@
         }
         label {
             margin-top: 10px;
+            font-weight: bold;
         }
         input, select {
             padding: 10px;
             margin-top: 5px;
             border: 1px solid #ccc;
             border-radius: 4px;
+            font-size: 16px;
         }
         button {
-            padding: 10px;
+            padding: 12px;
             margin-top: 20px;
-            background-color: #ff0000;
+            background-color: #d9534f;
             color: white;
             border: none;
             cursor: pointer;
             border-radius: 4px;
             font-size: 16px;
+            transition: background-color 0.3s;
         }
         button:hover {
-            background-color: #e60000;
+            background-color: #c9302c;
         }
         #hospitalList {
             list-style: none;
@@ -66,57 +75,82 @@
             width: 100%;
             height: 400px;
             margin-top: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
         }
         .confirm-button {
-            background-color: #28a745;
+            background-color: #5cb85c;
         }
         .confirm-button:hover {
-            background-color: #218838;
+            background-color: #4cae4c;
         }
         .hidden {
             display: none;
         }
         #hospitalSelect {
             height: 150px;
+            width: 100%;
+        }
+        .distance-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .emergency-alert {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Ambulance SOS</h1>
+        <h1>🚑 Ambulance SOS</h1>
         
         <!-- User Form Section -->
         <form id="userForm">
-            <label for="name">Name:</label>
-            <input type="text" id="name" required>
+            <label for="name">Full Name:</label>
+            <input type="text" id="name" required placeholder="Your full name">
             
-            <label for="email">Email:</label>
-            <input type="email" id="email" required>
+            <label for="email">Email Address:</label>
+            <input type="email" id="email" required placeholder="Your email address">
             
             <button type="submit">Request Emergency Assistance</button>
         </form>
         
         <!-- Location Section -->
         <div id="locationContainer" class="hidden">
-            <h2>Your Location</h2>
-            <p id="location"></p>
+            <h2>Your Current Location</h2>
+            <p id="location">Locating you now...</p>
             <button id="findHospitals">Find Nearby Hospitals</button>
         </div>
         
         <!-- Hospital Selection Section -->
         <div id="hospitalContainer" class="hidden">
             <h2>Select Hospitals</h2>
-            <p>Select one or more hospitals from the list below:</p>
+            <p>Please select one or more hospitals from the list below:</p>
             <select id="hospitalSelect" multiple></select>
             <button id="calculateDistances">Calculate Distances</button>
         </div>
         
         <!-- Results Section -->
         <div id="distanceContainer" class="hidden">
-            <h2>Distances to Hospitals</h2>
+            <h2>Emergency Hospital Information</h2>
+            <div class="emergency-alert">
+                EMERGENCY ASSISTANCE REQUESTED - PLEASE RESPOND IMMEDIATELY
+            </div>
+            
+            <h3>Distances to Hospitals</h3>
             <ul id="distanceList"></ul>
+            
             <div id="map"></div>
-            <button id="sendEmail" class="confirm-button">Send Emergency Information</button>
+            
+            <button id="sendEmail" class="confirm-button">
+                Send Emergency Information to My Email
+            </button>
         </div>
     </div>
 
@@ -128,6 +162,7 @@
         // Initialize EmailJS with your public key
         (function() {
             emailjs.init("l9wVpljUf4G77bRa7"); // Replace with your actual public key
+            console.log("EmailJS initialized");
         })();
 
         // Global variables
@@ -139,8 +174,8 @@
         // Form submission handler
         document.getElementById('userForm').addEventListener('submit', function(event) {
             event.preventDefault();
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
 
             if (name && email) {
                 document.getElementById('locationContainer').classList.remove('hidden');
@@ -152,15 +187,22 @@
                         function(position) {
                             userLatitude = position.coords.latitude;
                             userLongitude = position.coords.longitude;
-                            document.getElementById('location').innerText = 
-                                `Latitude: ${userLatitude.toFixed(6)}, Longitude: ${userLongitude.toFixed(6)}`;
+                            document.getElementById('location').innerHTML = 
+                                `<strong>Latitude:</strong> ${userLatitude.toFixed(6)}<br>
+                                 <strong>Longitude:</strong> ${userLongitude.toFixed(6)}`;
                         },
                         function(error) {
-                            alert('Geolocation request was denied or failed. Please enable location services and try again.');
-                        }
+                            console.error("Geolocation error:", error);
+                            alert('Location access was denied or failed. Please enable location services and try again.');
+                            document.getElementById('userForm').classList.remove('hidden');
+                            document.getElementById('locationContainer').classList.add('hidden');
+                        },
+                        { timeout: 10000 }
                     );
                 } else {
                     alert('Geolocation is not supported by this browser.');
+                    document.getElementById('userForm').classList.remove('hidden');
+                    document.getElementById('locationContainer').classList.add('hidden');
                 }
             }
         });
@@ -168,23 +210,25 @@
         // Find hospitals handler
         document.getElementById('findHospitals').addEventListener('click', function() {
             if (userLatitude && userLongitude) {
-                // In a real app, you would fetch real hospital data from an API
-                // This is simulated data for demonstration
+                // Simulated hospital data - in production, use a real API
                 hospitals = [
                     { 
                         name: 'City General Hospital', 
                         coordinates: { lat: userLatitude + 0.01, lng: userLongitude + 0.01 },
-                        address: '123 Medical Center Dr'
+                        address: '123 Medical Center Dr, Emergency Dept Open 24/7',
+                        phone: '(555) 123-4567'
                     },
                     { 
                         name: 'Regional Trauma Center', 
                         coordinates: { lat: userLatitude - 0.01, lng: userLongitude - 0.01 },
-                        address: '456 Emergency Way'
+                        address: '456 Emergency Way, Level I Trauma Center',
+                        phone: '(555) 987-6543'
                     },
                     { 
                         name: 'University Medical Center', 
                         coordinates: { lat: userLatitude + 0.02, lng: userLongitude + 0.02 },
-                        address: '789 Health Sciences Blvd'
+                        address: '789 Health Sciences Blvd, Teaching Hospital',
+                        phone: '(555) 456-7890'
                     }
                 ];
 
@@ -193,7 +237,13 @@
                 
                 hospitals.forEach(hospital => {
                     const option = document.createElement('option');
-                    option.value = hospital.name;
+                    option.value = JSON.stringify({
+                        name: hospital.name,
+                        address: hospital.address,
+                        phone: hospital.phone,
+                        lat: hospital.coordinates.lat,
+                        lng: hospital.coordinates.lng
+                    });
                     option.textContent = `${hospital.name} (${hospital.address})`;
                     hospitalSelect.appendChild(option);
                 });
@@ -207,10 +257,9 @@
 
         // Calculate distances handler
         document.getElementById('calculateDistances').addEventListener('click', function() {
-            const selectedHospitals = Array.from(document.getElementById('hospitalSelect').selectedOptions)
-                .map(opt => opt.value.split(' (')[0]); // Extract just the hospital name
+            const selectedOptions = Array.from(document.getElementById('hospitalSelect').selectedOptions);
             
-            if (selectedHospitals.length === 0) {
+            if (selectedOptions.length === 0) {
                 alert("Please select at least one hospital.");
                 return;
             }
@@ -218,70 +267,84 @@
             const distanceList = document.getElementById('distanceList');
             distanceList.innerHTML = '';
 
-            selectedHospitals.forEach(hospitalName => {
-                const hospital = hospitals.find(h => h.name === hospitalName);
+            selectedOptions.forEach(option => {
+                const hospital = JSON.parse(option.value);
                 const dist = calculateDistance(
                     userLatitude, 
                     userLongitude, 
-                    hospital.coordinates.lat, 
-                    hospital.coordinates.lng
+                    hospital.lat, 
+                    hospital.lng
                 );
                 
                 const li = document.createElement('li');
-                li.textContent = `${hospitalName} - ${dist.toFixed(2)} km away (${hospital.address})`;
+                li.className = 'distance-item';
+                li.innerHTML = `
+                    <strong>${hospital.name}</strong><br>
+                    <small>${hospital.address}</small><br>
+                    <strong>Distance:</strong> ${dist.toFixed(2)} km<br>
+                    <strong>Phone:</strong> ${hospital.phone}
+                `;
                 distanceList.appendChild(li);
             });
 
             document.getElementById('distanceContainer').classList.remove('hidden');
             document.getElementById('hospitalContainer').classList.add('hidden');
-            initializeMap(userLatitude, userLongitude, selectedHospitals);
+            initializeMap(userLatitude, userLongitude, selectedOptions);
         });
 
         // Send email handler
         document.getElementById('sendEmail').addEventListener('click', function() {
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
             
-            const selectedHospitals = Array.from(document.getElementById('hospitalSelect').selectedOptions)
-                .map(opt => {
-                    const hospitalName = opt.value.split(' (')[0];
-                    const hospital = hospitals.find(h => h.name === hospitalName);
-                    return {
-                        name: hospital.name,
-                        address: hospital.address,
-                        distance: calculateDistance(
-                            userLatitude,
-                            userLongitude,
-                            hospital.coordinates.lat,
-                            hospital.coordinates.lng
-                        ).toFixed(2)
-                    };
-                });
+            const selectedOptions = Array.from(document.getElementById('hospitalSelect').selectedOptions);
+            const selectedHospitals = selectedOptions.map(option => {
+                const hospital = JSON.parse(option.value);
+                return {
+                    name: hospital.name,
+                    address: hospital.address,
+                    phone: hospital.phone,
+                    distance: calculateDistance(
+                        userLatitude,
+                        userLongitude,
+                        hospital.lat,
+                        hospital.lng
+                    ).toFixed(2)
+                };
+            });
 
             const templateParams = {
                 to_email: email,
-                name: name,
-                time: new Date().toLocaleString(),
+                to_name: name,
+                from_name: "Ambulance SOS System",
                 user_lat: userLatitude.toFixed(6),
                 user_lng: userLongitude.toFixed(6),
+                time: new Date().toLocaleString(),
                 hospitals: selectedHospitals,
-                message: `Emergency assistance requested from ${name} at location ${userLatitude.toFixed(6)}, ${userLongitude.toFixed(6)}`
+                emergency_message: `URGENT: Medical assistance requested by ${name}`
             };
 
-            emailjs.send('service_gz495sx', 'template_bdtizbt', templateParams)
+            console.log("Sending email with params:", templateParams);
+
+            emailjs.send('service_6ch22yu', 'template_bdtizbt', templateParams)
                 .then(function(response) {
+                    console.log('Email sent successfully:', response);
                     alert('Emergency information has been sent to your email! Help is on the way!');
+                    
                     // Reset the form
                     document.getElementById('userForm').reset();
                     document.getElementById('userForm').classList.remove('hidden');
                     document.getElementById('distanceContainer').classList.add('hidden');
+                    
+                    // Clear selections
+                    document.getElementById('hospitalSelect').selectedIndex = -1;
                 }, function(error) {
                     console.error('Failed to send email:', error);
-                    alert('Failed to send emergency information. Please try again or call emergency services directly.');
+                    alert('Failed to send emergency information. Error: ' + error.text + '\nPlease try again or call emergency services directly.');
                 });
         });
 
-        // Helper function to calculate distance between coordinates
+        // Helper function to calculate distance between coordinates (Haversine formula)
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371; // Earth radius in km
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -295,7 +358,7 @@
         }
 
         // Initialize map with user location and hospital markers
-        function initializeMap(latitude, longitude, selectedHospitalNames) {
+        function initializeMap(latitude, longitude, selectedOptions) {
             // Clear previous map if exists
             if (map) {
                 map.remove();
@@ -310,24 +373,48 @@
             }).addTo(map);
 
             // Add user location marker
-            L.marker([latitude, longitude]).addTo(map)
-                .bindPopup('<b>Your Location</b>')
-                .openPopup();
+            L.marker([latitude, longitude], {
+                icon: L.divIcon({
+                    className: 'user-location-marker',
+                    html: '📍',
+                    iconSize: [30, 30]
+                })
+            }).addTo(map)
+            .bindPopup('<b>Your Location</b>')
+            .openPopup();
 
-            // Add hospital markers
-            selectedHospitalNames.forEach(name => {
-                const hospital = hospitals.find(h => h.name === name);
-                L.marker([hospital.coordinates.lat, hospital.coordinates.lng]).addTo(map)
-                    .bindPopup(`<b>${hospital.name}</b><br>${hospital.address}`);
-                    
-                // Add line connecting user to hospital
+            // Add hospital markers and routes
+            selectedOptions.forEach(option => {
+                const hospital = JSON.parse(option.value);
+                
+                // Add hospital marker
+                L.marker([hospital.lat, hospital.lng], {
+                    icon: L.divIcon({
+                        className: 'hospital-marker',
+                        html: '🏥',
+                        iconSize: [30, 30]
+                    })
+                }).addTo(map)
+                .bindPopup(`
+                    <b>${hospital.name}</b><br>
+                    ${hospital.address}<br>
+                    Phone: ${hospital.phone}
+                `);
+                
+                // Add route line
                 L.polyline(
                     [
                         [latitude, longitude],
-                        [hospital.coordinates.lat, hospital.coordinates.lng]
+                        [hospital.lat, hospital.lng]
                     ],
-                    {color: 'red', dashArray: '5, 5'}
-                ).addTo(map);
+                    {
+                        color: '#d9534f',
+                        weight: 3,
+                        dashArray: '5, 5',
+                        opacity: 0.7
+                    }
+                ).addTo(map)
+                .bindPopup(`Distance: ${calculateDistance(latitude, longitude, hospital.lat, hospital.lng).toFixed(2)} km`);
             });
         }
     </script>
