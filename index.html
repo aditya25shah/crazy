@@ -118,7 +118,7 @@
             <label for="email">Email Address:</label>
             <input type="email" id="email" required placeholder="Your email address">
             
-            <button type="submit">Request Emergency Assistance</button>
+            <button type="submit" onclick="sendTestEmail()">Request Emergency Assistance</button>
         </form>
         
         <!-- Location Section -->
@@ -142,7 +142,6 @@
             <div class="emergency-alert">
                 EMERGENCY ASSISTANCE REQUESTED - PLEASE RESPOND IMMEDIATELY
             </div>
-            
             <h3>Distances to Hospitals</h3>
             <ul id="distanceList"></ul>
             
@@ -158,10 +157,11 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     
+
     <script>
         // Initialize EmailJS with your public key
         (function() {
-            emailjs.init("l9wVpljUf4G77bRa7"); // Replace with your actual public key
+            emailjs.init("I9wVpljUf4G77bRa7"); // Replace with your actual public key
             console.log("EmailJS initialized");
         })();
 
@@ -294,35 +294,36 @@
 
         // Send email handler
         document.getElementById('sendEmail').addEventListener('click', function() {
+            const selectedOptions = Array.from(document.getElementById('hospitalSelect').selectedOptions);
+    
+    if(selectedOptions.length === 0) {
+        alert('Please select at least one hospital before sending the email.');
+        return;
+    }
             const name = document.getElementById('name').value.trim();
             const email = document.getElementById('email').value.trim();
-            
-            const selectedOptions = Array.from(document.getElementById('hospitalSelect').selectedOptions);
-            const selectedHospitals = selectedOptions.map(option => {
-                const hospital = JSON.parse(option.value);
-                return {
-                    name: hospital.name,
-                    address: hospital.address,
-                    phone: hospital.phone,
-                    distance: calculateDistance(
-                        userLatitude,
-                        userLongitude,
-                        hospital.lat,
-                        hospital.lng
-                    ).toFixed(2)
-                };
-            });
+            const selectedHospitals = Array.from(selectedOptions).map(option => {
+    const hospital = JSON.parse(option.value);
+    const dist = calculateDistance(
+        userLatitude,
+        userLongitude,
+        hospital.lat,
+        hospital.lng
+    ).toFixed(2);
+    return `${hospital.name} (${dist} km) - ${hospital.address}, Phone: ${hospital.phone}`;
+});
 
-            const templateParams = {
-                to_email: email,
-                to_name: name,
-                from_name: "Ambulance SOS System",
-                user_lat: userLatitude.toFixed(6),
-                user_lng: userLongitude.toFixed(6),
-                time: new Date().toLocaleString(),
-                hospitals: selectedHospitals,
-                emergency_message: `URGENT: Medical assistance requested by ${name}`
-            };
+const hospitalsInfoText = selectedHospitals.join('\n');
+
+const templateParams = {
+    email: email,
+    to_name: name,
+    name:name,
+    user_lat: userLatitude.toFixed(6),
+    user_lng: userLongitude.toFixed(6),
+    time: new Date().toLocaleString(),
+    hospitals_info: hospitalsInfoText,
+};
 
             console.log("Sending email with params:", templateParams);
 
@@ -335,9 +336,9 @@
                     document.getElementById('userForm').reset();
                     document.getElementById('userForm').classList.remove('hidden');
                     document.getElementById('distanceContainer').classList.add('hidden');
-                    
-                    // Clear selections
-                    document.getElementById('hospitalSelect').selectedIndex = -1;
+                    const hospitalSelect = document.getElementById('hospitalSelect');
+Array.from(hospitalSelect.options).forEach(option => option.selected = false);
+
                 }, function(error) {
                     console.error('Failed to send email:', error);
                     alert('Failed to send emergency information. Error: ' + error.text + '\nPlease try again or call emergency services directly.');
